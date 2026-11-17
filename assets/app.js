@@ -39,6 +39,8 @@
   } else window.location.assign(base+'dashboard/');
  }
  const menu=$('.menu-toggle');
+ const workspaceLink=$('.nav-login');
+ if(workspaceLink&&read('sessionStorage','session')?.demo){workspaceLink.href=base+'dashboard/';workspaceLink.textContent='My workspace';}
  if(menu) menu.addEventListener('click',()=>{
   const expanded=menu.getAttribute('aria-expanded')!=='true';menu.setAttribute('aria-expanded',String(expanded));menu.setAttribute('aria-label',expanded?'Close menu':'Open menu');$('#primary-navigation').classList.toggle('open',expanded);
  });
@@ -102,9 +104,13 @@
  let records=Array.isArray(saved)&&saved.length<2000&&saved.every(r=>r&&typeof r.id==='string'&&typeof r.name==='string'&&typeof r.place==='string'&&typeof r.owner==='string'&&typeof r.note==='string'&&Number.isFinite(r.value)&&r.value>=0&&Number.isFinite(r.score)&&r.score>=0&&r.score<=100&&statuses.includes(r.status))?saved:fixture();
  let activeRecord=null;
  function persist(){write('localStorage','records',records);render();}
- function statsHTML() {
+ function statsHTML(interactive=false) {
   const total=records.reduce((sum,r)=>sum+r.value,0),done=records.filter(r=>r.status===config.finalStatus).length,attention=records.filter(r=>r.status==='Needs review').length;
-  return [[number(records.length),config.objects+' in view','All current sample records',''],[number(total),config.totalLabel,'Total across the register',config.unit],[number(attention),'Need review','Open questions for an operator',''],[number(records.length?done/records.length*100:0)+'%',config.metricLabel,`${done} of ${records.length} records complete`,'']].map(([value,label,note,unit])=>`<div class="dashboard-stat"><span>${safe(label)}</span><strong>${safe(value)}${unit?`<small>${safe(unit)}</small>`:''}</strong><p>${safe(note)}</p></div>`).join('');
+  const scheduled=records.filter(r=>r.status==='Scheduled').length;
+  return [[attention,'Needs review','Start with the open questions','Needs review'],[scheduled,'Scheduled','See the next planned shipments','Scheduled'],[done,config.finalStatus,'View completed handovers',config.finalStatus],[records.length,'All shipments',number(total)+' '+config.unit+' in the register','']].map(([value,label,note,status])=>{
+   const content=`<span>${safe(label)}</span><strong>${number(value)}</strong><p>${safe(note)}</p>`;
+   return interactive?`<button class="dashboard-stat" type="button" data-record-status="${safe(status)}" aria-label="${safe(label)}: ${number(value)} ${value===1?'shipment':'shipments'}">${content}<span class="w-stat-arrow" aria-hidden="true">↗</span></button>`:`<div class="dashboard-stat">${content}</div>`;
+  }).join('');
  }
  function filtered() {
   const query=($('#record-search')?.value||'').trim().toLowerCase();const status=$('#status-filter')?.value||'';const sort=$('#record-sort')?.value||'priority';
@@ -116,24 +122,36 @@
   return `<div class="table-overflow"><table class="data-table"><thead><tr><th scope="col">${safe(config.object.toUpperCase())}</th><th scope="col">${safe(config.placeLabel.toUpperCase())}</th><th scope="col">${safe(config.unit.toUpperCase())}</th><th scope="col">PRIORITY</th><th scope="col">STATUS</th><th scope="col">OWNER</th></tr></thead><tbody>${rows.map(r=>`<tr><td><button type="button" class="record-name" data-record="${safe(r.id)}">${safe(r.name)}<small>${safe(r.id)}</small></button></td><td><span class="record-place">${safe(r.place)}</span></td><td>${number(r.value)}</td><td><span class="priority-score"><i><span style="width:${r.score}%"></span></i>${r.score}</span></td><td>${badge(r.status)}</td><td>${safe(r.owner)}</td></tr>`).join('')}</tbody></table></div>`;
  }
  function render() {
-  const html=statsHTML();$('#dashboard-stats').innerHTML=html;$('#report-summary').innerHTML=html;
-  const count=records.filter(r=>r.status==='Needs review').length;
-  $('#attention-summary').textContent=count?`${count} ${count===1?config.object.toLowerCase():config.objects.toLowerCase()} ${count===1?'needs':'need'} review in this sample workspace. A responsible operator chooses the next step.`:'No records need review. Check scheduled work or add the next sample record.';
-  $('#overview-table').innerHTML=tableHTML([...records].sort((a,b)=>b.score-a.score).slice(0,5));
+  $('#dashboard-stats').innerHTML=statsHTML(true);$('#report-summary').innerHTML=statsHTML();
+  const queue=records.filter(r=>r.status==='Needs review').sort((a,b)=>b.score-a.score),count=queue.length;
+  $('#attention-summary').textContent=count?`${count} ${count===1?'shipment is':'shipments are'} waiting for review. Start with the highest priority, then decide what happens next.`:'Your review queue is clear. Check scheduled shipments or register the next one.';
+  $('#queue-count').textContent=number(count);
+  $('#priority-queue').innerHTML=count?queue.map(r=>`<button class="w-queue-item" type="button" data-record="${safe(r.id)}"><span class="w-queue-copy"><span class="w-queue-reference">${safe(r.id)} · ${safe(r.place)}</span><strong>${safe(r.name)}</strong><span class="w-queue-note">${safe(r.note)}</span><span class="w-queue-owner">Assigned to ${safe(r.owner)}</span></span><span class="w-queue-priority"><strong>${r.score}</strong><span>priority</span><i aria-hidden="true">↗</i></span></button>`).join(''):'<div class="w-queue-empty"><strong>All caught up.</strong><p>There are no open condition warnings in your shipment register.</p><button class="text-link" type="button" data-record-status="Scheduled">View scheduled shipments →</button></div>';
+  const done=records.filter(r=>r.status===config.finalStatus).length;
+  $('#handover-progress').max=Math.max(records.length,1);$('#handover-progress').value=done;
+  $('#handover-count').textContent=`${done} of ${records.length} shipments delivered`;
+  $('#overview-table').innerHTML=tableHTML(records.filter(r=>r.status==='Scheduled').sort((a,b)=>b.score-a.score));
   const visible=filtered();$('#record-table').innerHTML=tableHTML(visible);$('#record-count').textContent=`Showing ${visible.length} of ${records.length} sample ${config.objects.toLowerCase()} · Changes saved in this browser`;
   $$('[data-record]').forEach(button=>button.addEventListener('click',()=>openRecord(button.dataset.record)));
  }
  function activateTab(tab,updateHash=true) {
-  if(!['overview','records','reports','settings'].includes(tab))tab='overview';
+  if(!['overview','records','review','reports','settings'].includes(tab))tab='overview';
+  const triggerPanel=document.activeElement.closest('.app-panel');
   $$('.app-panel').forEach(panel=>panel.hidden=panel.id!=='panel-'+tab);
   $$('.app-tab').forEach(button=>{const active=button.dataset.tab===tab;button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));});
-  $('#breadcrumb').textContent=tab==='records'?config.objects:tab[0].toUpperCase()+tab.slice(1);
+  $('#breadcrumb').textContent=tab==='records'?config.objects:tab==='review'?'Review desk':tab[0].toUpperCase()+tab.slice(1);
   if(updateHash)history.replaceState(null,'','#'+tab);
   $('.app-sidebar').classList.remove('open');$('#app-menu').setAttribute('aria-expanded','false');
+  if(triggerPanel?.hidden){const heading=$('#panel-'+tab+' h1, #panel-'+tab+' h2');heading?.setAttribute('tabindex','-1');heading?.focus({preventScroll:true});}
+ }
+ function openRecords(status='') {
+  $('#status-filter').value=status;$('#record-search').value='';$('#record-sort').value='priority';activateTab('records');render();
  }
  $$('.app-tab').forEach(button=>button.addEventListener('click',()=>activateTab(button.dataset.tab)));
- $$('[data-open-records]').forEach(button=>button.addEventListener('click',()=>activateTab('records')));
- $('#show-attention').addEventListener('click',()=>{$('#status-filter').value='Needs review';$('#record-search').value='';render();activateTab('records');});
+ $$('[data-open-records]').forEach(button=>button.addEventListener('click',()=>openRecords()));
+ $$('[data-open-review]').forEach(button=>button.addEventListener('click',()=>activateTab('review')));
+ $('#show-attention').addEventListener('click',()=>openRecords('Needs review'));
+ $('#panel-overview').addEventListener('click',event=>{const metric=event.target.closest('[data-record-status]');if(metric)openRecords(metric.dataset.recordStatus);});
  $('#app-menu').addEventListener('click',()=>{const open=$('.app-sidebar').classList.toggle('open');$('#app-menu').setAttribute('aria-expanded',String(open));});
  document.addEventListener('click',event=>{if(window.innerWidth<=760&&!event.target.closest('.app-sidebar')&&!event.target.closest('#app-menu')){$('.app-sidebar').classList.remove('open');$('#app-menu').setAttribute('aria-expanded','false');}});
  document.addEventListener('keydown',event=>{if(event.key==='Escape'){$('.app-sidebar').classList.remove('open');$('#app-menu').setAttribute('aria-expanded','false');}});
