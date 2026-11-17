@@ -105,7 +105,7 @@ import * as planning from './planning-math.js';
    const body=`PRODUCT WALKTHROUGH ENQUIRY — ${b.name}\n\nOrganization / team: ${String(data.organization||'Not supplied').trim()}\nWorkflow: ${data.workflow}\nPreferred date: ${data.date||'No preference'}\nPreferred time (Africa/Lagos): ${data.time||'No preference'}\n\n${String(data.message||'').trim()}\n\nThe preferred time is a request, not a confirmed booking.`;
    let destination;
    if(form.dataset.enquiryMethod==='email'&&b.company.contactEmail)destination='mailto:'+b.company.contactEmail+'?subject='+encodeURIComponent(b.name+' product walkthrough')+'&body='+encodeURIComponent(body);
-   else{destination=new URL('https://github.com/Uniqkode/b2b-product-studio/issues/new');destination.searchParams.set('title',b.name+' product walkthrough');destination.searchParams.set('body',body);destination=destination.href;}
+   else{destination=new URL('https://github.com/Uniqkode/coldline/issues/new');destination.searchParams.set('title',b.name+' product walkthrough');destination.searchParams.set('body',body);destination=destination.href;}
    $('[data-enquiry-copy]',form).textContent=body;$('[data-enquiry-send]',form).href=destination;$('[data-enquiry-preview]',form).hidden=false;
   });
   const prepare=$('[data-enquiry-prepare]',form);if(prepare)prepare.disabled=false;
