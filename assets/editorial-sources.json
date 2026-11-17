@@ -1,0 +1,33 @@
+[
+  {
+    "name": "coldline-store",
+    "url": "https://images.unsplash.com/photo-1586528116493-a029325540fa?auto=format&fit=crop&w=1500&q=80&fm=jpg",
+    "original": "https://images.unsplash.com/photo-1586528116493-a029325540fa",
+    "source": "https://images.unsplash.com/photo-1586528116493-a029325540fa",
+    "license": "Unsplash license",
+    "license_url": "https://unsplash.com/license",
+    "author": "Photography via Unsplash",
+    "title": "coldline store",
+    "file": "editorial-1.jpg",
+    "width": 1500,
+    "height": 1000,
+    "modifications": "Resized and recompressed for website display; CSS may crop the displayed image.",
+    "description": "Warehouse picking and storage aisles"
+  },
+  {
+    "name": "coldline-truck",
+    "query": "refrigerated truck",
+    "title": "Air pollution by refrigerated truck Lille France 01.jpg",
+    "url": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/68/Air_pollution_by_refrigerated_truck_Lille_France_01.jpg/1920px-Air_pollution_by_refrigerated_truck_Lille_France_01.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/6/68/Air_pollution_by_refrigerated_truck_Lille_France_01.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "source": "https://commons.wikimedia.org/wiki/File:Air_pollution_by_refrigerated_truck_Lille_France_01.jpg",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "author": "Lamiot",
+    "description": "A refrigerated logistics truck",
+    "file": "editorial-2.jpg",
+    "width": 1500,
+    "height": 935,
+    "modifications": "Resized and recompressed for website display; CSS may crop the displayed image."
+  }
+]
