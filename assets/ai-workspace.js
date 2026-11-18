@@ -1,6 +1,11 @@
 /* Evidence-led product interactions. Prepared examples and connected AI are explicit modes. */
-(() => {
+(async () => {
  'use strict';
+ await window.COLDLINE_WORKSPACE_READY;
+ const cloud=window.COLDLINE_WORKSPACE;
+ if(cloud&&document.body.dataset.page==='dashboard'&&!cloud.session)return;
+ let organizationHistory=[];
+ if(cloud?.session){try{organizationHistory=(await cloud.request('reports')).reports.filter(report=>report.accepted);}catch{}}
  const brand=window.BRAND;if(!brand?.ai)return;
  const icon='<svg class="ui-arrow" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12 12 4M4 4h8v8"/></svg>';
  const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -10,6 +15,7 @@
  const $=(s,root=document)=>root.querySelector(s);
  const $$=(s,root=document)=>[...root.querySelectorAll(s)];
  function readHistory(){
+  if(cloud)return organizationHistory;
   try{const value=JSON.parse(localStorage.getItem(storageKey)||'[]');return Array.isArray(value)?value.filter(r=>r&&typeof r.id==='string'&&typeof r.title==='string'&&Array.isArray(r.findings)&&r.findings.length<=20).slice(0,50):[];}catch{return [];}
  }
  function writeHistory(rows){try{localStorage.setItem(storageKey,JSON.stringify(rows.slice(0,50)));return true;}catch{return false;}}
@@ -63,16 +69,21 @@
    caseName=event.target.value;requestVersion++;controller?.abort();current=null;sources=activeCase().sources;renderSources();progress.hidden=true;
    output.innerHTML='<div class="ai-output-empty"><h4>A different case.<br>A different review.</h4><p>Run the selected sample to inspect its evidence and next action.</p></div>';
    $('[data-ai-report-actions]',root).hidden=true;status.textContent='Case selected. Run the sample to prepare its report.';
-   $('[data-ai-live-run]',root).disabled=false;
+   $('[data-ai-live-run]',root).disabled=Boolean(cloud?.session&&!cloud.canWrite());
   });
   $('[data-ai-run]',root).addEventListener('click',()=>{
-   requestVersion++;controller?.abort();$('[data-ai-live-run]',root).disabled=false;const selected=activeCase();sources=selected.sources;renderSources();
+   requestVersion++;controller?.abort();$('[data-ai-live-run]',root).disabled=Boolean(cloud?.session&&!cloud.canWrite());const selected=activeCase();sources=selected.sources;renderSources();
    progress.hidden=false;progress.innerHTML='<strong>Prepared review steps</strong><ol>'+brand.ai.stages.map(s=>'<li>'+esc(s[0])+'</li>').join('')+'</ol>';
    const report={...selected,id:newId(),mode:'sample',accepted:false};renderReport(report);
    status.textContent='Prepared report ready. Open a source citation before accepting the report for human review.';
   });
-  $('[data-ai-accept]',root).addEventListener('click',()=>{
+  $('[data-ai-accept]',root).addEventListener('click',async()=>{
    if(!current||current.accepted)return;
+   if(cloud&&current.mode==='live'){
+    const button=$('[data-ai-accept]',root);button.disabled=true;
+    try{const result=await cloud.request('reports/'+encodeURIComponent(current.id)+'/accept',{method:'POST'});current=result.report;organizationHistory=[current,...organizationHistory.filter(report=>report.id!==current.id)];renderReport(current);renderHistory();status.textContent='Report accepted for human review and saved to your organization workspace.';}catch(error){status.textContent=error.message;button.disabled=false;}return;
+   }
+   if(cloud){status.textContent='This prepared example is available to download. Run a connected analysis to save an organization report.';return;}
    const retained={...current,accepted:true,sources:current.sources.map(({image,...source})=>source)};
    if(!writeHistory([retained,...readHistory()])){status.textContent='Browser storage is unavailable. Download the report to keep a copy.';return;}
    current.accepted=true;renderReport(current);renderHistory();status.textContent='Report queued for human review in this browser. This does not certify the finding or complete the professional decision.';
@@ -104,13 +115,19 @@
     const data=await response.json();if(!response.ok)throw new Error(data.error||'The service could not complete this analysis.');
     if(ownVersion!==requestVersion)return;
     if(!data.report||!Array.isArray(data.report.findings)||!data.report.findings.length)throw new Error('The service returned no reviewable findings.');
-    const ids=new Set(inputs.map(i=>i.id));if(data.report.findings.some(f=>!ids.has(f.source)||typeof f.title!=='string'||typeof f.quote!=='string'||typeof f.action!=='string'))throw new Error('The service returned a finding without a valid source reference.');
-    sources=inputs.map(i=>({id:i.id,name:i.name,kind:i.kind==='image'?'Uploaded test image':'Entered test text',excerpt:i.text||'Image supplied for this connected analysis.',image:i.image}));renderSources();
-    const report={id:newId(),title:data.report.title||brand.ai.outputTag,summary:data.report.summary,findings:data.report.findings,sources,mode:'live',accepted:false,usage:data.usage,cached:data.cached};
+    const evidence=cloud&&Array.isArray(data.report.sources)?data.report.sources:inputs;
+    const ids=new Set(evidence.map(i=>i.id));if(data.report.findings.some(f=>!ids.has(f.source)||typeof f.title!=='string'||typeof f.quote!=='string'||typeof f.action!=='string'))throw new Error('The service returned a finding without a valid source reference.');
+    sources=evidence.map(i=>({id:i.id,name:i.name,kind:i.kind==='image'?'Uploaded test image':'Entered test text',excerpt:i.excerpt||i.text||'Image supplied for this connected analysis.',image:inputs.find(source=>source.id===i.id)?.image}));renderSources();
+    const report={id:cloud?data.report.id:newId(),title:data.report.title||brand.ai.outputTag,summary:data.report.summary,findings:data.report.findings,sources,mode:'live',accepted:false,usage:data.usage,cached:data.cached};
     renderReport(report);progress.hidden=true;status.textContent='Connected analysis ready. Verify the cited evidence before making any operational decision.';
    }catch(error){if(error.name!=='AbortError')status.textContent=error.message||'The service is unavailable. Check its address and connection settings.';}
    finally{if(ownVersion===requestVersion)button.disabled=false;}
   });
+  if(cloud){
+   const endpoint=$('[data-ai-endpoint]',root);endpoint.value=location.origin;endpoint.readOnly=true;
+   $('[data-ai-service-token]',root).closest('label').hidden=true;
+   if(cloud.session&&!cloud.canWrite())$('[data-ai-live-run]',root).disabled=true;
+  }
   renderSources();
  }
  renderHistory();
