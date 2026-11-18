@@ -14,6 +14,7 @@
  const storageKey='b2b:'+brand.slug+':analyses';
  const $=(s,root=document)=>root.querySelector(s);
  const $$=(s,root=document)=>[...root.querySelectorAll(s)];
+ const readFile=file=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('The selected file could not be read.'));reader.readAsDataURL(file);});
  function readHistory(){
   if(cloud)return organizationHistory;
   try{const value=JSON.parse(localStorage.getItem(storageKey)||'[]');return Array.isArray(value)?value.filter(r=>r&&typeof r.id==='string'&&typeof r.title==='string'&&Array.isArray(r.findings)&&r.findings.length<=20).slice(0,50):[];}catch{return [];}
@@ -60,7 +61,7 @@
   function renderReport(report){
    current=report;
    output.innerHTML=`<div class="ai-report-meta"><span>${report.mode==='live'?'CONNECTED AI ANALYSIS':'PREPARED SAMPLE ANALYSIS'}</span><span>${report.cached?'Cached result · no new model request':report.mode==='live'?'Check every cited claim':'No live AI request was sent'}</span></div><div class="ai-report-summary">${esc(report.summary)}</div>${report.findings.map((f,i)=>`<article class="ai-finding"><div class="ai-finding-top"><h4>${esc(f.title)}</h4><span>${esc(f.level||'Review')}</span></div><button class="ai-evidence-quote" type="button" data-ai-citation="${i}"><span>${esc(f.source)}</span>“${esc(f.quote)}” ${icon}</button><p class="ai-finding-action"><strong>NEXT ACTION</strong>${esc(f.action)}</p></article>`).join('')}`;
-   if(report.usage){const line=document.createElement('p');line.className='ai-report-meta';line.textContent=`Service-reported usage: ${number(report.usage.input_tokens||0)} input tokens · ${number(report.usage.output_tokens||0)} output tokens`;output.append(line);}
+   if(report.usage){const line=document.createElement('p');line.className='ai-report-meta';line.textContent=`Service-reported usage: ${number(report.usage.input_tokens||0)} input tokens · ${number(report.usage.output_tokens||0)} output tokens`;if(report.usage.documentPages)line.textContent+=` · ${number(report.usage.documentPages)} PDF pages read`;output.append(line);}
    $$('[data-ai-citation]',root).forEach(button=>button.addEventListener('click',()=>{const f=report.findings[Number(button.dataset.aiCitation)];showSource(f.source,f.quote);}));
    $('[data-ai-report-actions]',root).hidden=false;
    const accept=$('[data-ai-accept]',root);accept.disabled=!!report.accepted;accept.innerHTML=report.accepted?'Queued for human review':'Accept for human review '+icon;
@@ -90,6 +91,8 @@
   });
   $('[data-ai-download]',root).addEventListener('click',()=>{if(current){download(reportText(current),brand.slug+'-'+(current.mode==='live'?'ai':'sample')+'-report.md');status.textContent='Report downloaded with its source references and review status.';}});
   const files=$('[data-ai-files]',root);
+  const pdf=$('[data-ai-document]',root);
+  if(pdf&&cloud?.session?.documentIntake)pdf.closest('label').hidden=false;
   files.addEventListener('change',()=>{$('[data-ai-file-count]',root).textContent=files.files.length?files.files.length+' test image(s) selected. Uploaded only when you run the connected service.':'Up to 4 test images; 2 MB each.';});
   $('[data-ai-live-run]',root).addEventListener('click',async()=>{
    const ownVersion=++requestVersion;
@@ -97,15 +100,19 @@
    const button=$('[data-ai-live-run]',root),endpoint=$('[data-ai-endpoint]',root).value.trim(),text=$('[data-ai-custom-text]',root).value.trim();
    try{
     const url=new URL(endpoint);if(url.search||url.hash)throw new Error('Use the service base address without query parameters or a fragment.');if(url.username||url.password||!['https:','http:'].includes(url.protocol)||(url.protocol==='http:'&&!['localhost','127.0.0.1','[::1]'].includes(url.hostname)))throw new Error('Use an HTTPS AI service address, or localhost for local development.');
-    if(!text&&files.files.length===0)throw new Error('Add text or a test image for the connected service to analyze.');
+    const pdfFile=cloud?.session?.documentIntake&&pdf?.files[0];
+    if(!text&&files.files.length===0&&!pdfFile)throw new Error('Add shipment evidence to analyze.');
     if(files.files.length>4)throw new Error('Choose at most four test images.');
+    if(pdfFile&&(pdfFile.type!=='application/pdf'||pdfFile.size>2*1024*1024))throw new Error('Choose a PDF of up to 2 MB.');
+    if([...files.files].reduce((total,file)=>total+file.size,pdfFile?.size||0)>8*1024*1024)throw new Error('Keep the combined file size at or below 8 MB.');
     button.disabled=true;status.textContent='Checking the configured service…';
     const origin=url.href.replace(/\/$/,'');const health=await fetch(origin+'/api/health',{signal:controller.signal}).then(r=>r.json());
     if(!health.configured)throw new Error('The AI service is not fully configured. Set its provider credentials and, for Azure, the resource endpoint and deployment name on the server.');
     const inputs=[];if(text)inputs.push({id:'S1',name:'User test material',kind:'text',text});
+    if(pdfFile)inputs.push({id:'D1',name:pdfFile.name,kind:'pdf',document:await readFile(pdfFile)});
     for(const [index,file] of [...files.files].entries()){
      if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>2*1024*1024)throw new Error('Use JPEG, PNG or WebP test images up to 2 MB each.');
-     const image=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('The selected image could not be read.'));reader.readAsDataURL(file);});
+     const image=await readFile(file);
      inputs.push({id:'I'+(index+1),name:file.name,kind:'image',image});
     }
     status.textContent='Sending the entered test material to your configured AI service…';
@@ -117,7 +124,7 @@
     if(!data.report||!Array.isArray(data.report.findings)||!data.report.findings.length)throw new Error('The service returned no reviewable findings.');
     const evidence=cloud&&Array.isArray(data.report.sources)?data.report.sources:inputs;
     const ids=new Set(evidence.map(i=>i.id));if(data.report.findings.some(f=>!ids.has(f.source)||typeof f.title!=='string'||typeof f.quote!=='string'||typeof f.action!=='string'))throw new Error('The service returned a finding without a valid source reference.');
-    sources=evidence.map(i=>({id:i.id,name:i.name,kind:i.kind==='image'?'Uploaded test image':'Entered test text',excerpt:i.excerpt||i.text||'Image supplied for this connected analysis.',image:inputs.find(source=>source.id===i.id)?.image}));renderSources();
+    sources=evidence.map(i=>{const original=inputs.find(source=>source.id===i.id);return {id:i.id,name:i.name,kind:i.kind==='image'?'Uploaded test image':original?.kind==='pdf'?'Extracted PDF text':'Text evidence',excerpt:i.excerpt||i.text||'Image supplied for this connected analysis.',image:original?.image};});renderSources();
     const report={id:cloud?data.report.id:newId(),title:data.report.title||brand.ai.outputTag,summary:data.report.summary,findings:data.report.findings,sources,mode:'live',accepted:false,usage:data.usage,cached:data.cached};
     renderReport(report);progress.hidden=true;status.textContent='Connected analysis ready. Verify the cited evidence before making any operational decision.';
    }catch(error){if(error.name!=='AbortError')status.textContent=error.message||'The service is unavailable. Check its address and connection settings.';}

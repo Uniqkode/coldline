@@ -56,6 +56,8 @@ The activated free-form form posts to same-origin `/api/enquiries`. A receipt co
 
 Azure OpenAI receives authorized text and optional JPEG/PNG/WebP evidence. Structured findings cite supplied references; the adapter verifies text quotations. Images still require qualified review. Archives keep source text and metadata, not uploaded image bytes.
 
+Set the workflow variable `AZURE_DOCUMENT_INTELLIGENCE_ACCOUNT_NAME` to an existing Document Intelligence resource in the same resource group with a custom HTTPS subdomain. The template configures its endpoint and assigns the API identity the Cognitive Services User role. When enabled, members can attach one dispatch or handover PDF up to 2 MB. The Read model extracts the first ten pages. The brief retains the source reference and extracted text, and reports the number of pages read. Uploaded PDF bytes are not included in the archive. See [Microsoft’s Document Intelligence Read documentation](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/concept-read).
+
 The optional `api/sector-vision.mjs` adapter requires an evaluated model at `COLDLINE_VISION_ENDPOINT`. Set `COLDLINE_INFERENCE_HOST` for an explicitly allowed AKS host; Azure ML inference hosts are recognized. A custom audience also needs API setting `COLDLINE_INFERENCE_SCOPE`. Grant the API identity invocation access; AKS ingress must validate that identity. Request/response contract:
 
 ```json
@@ -66,7 +68,7 @@ The optional `api/sector-vision.mjs` adapter requires an evaluated model at `COL
 {"observations":[{"source":"I1","observation":"A bounded visible observation."}]}
 ```
 
-The adapter validates references and adds labelled observations to the review evidence. It does not supply a purpose-trained model. IoT ingestion, Document Intelligence parsing, and source-system pipelines remain separate implementation work.
+The adapter validates references and adds labelled observations to the review evidence. It requires a purpose-trained or evaluated model supplied by the operator. IoT ingestion and source-system pipelines remain separate integration work.
 
 `infra/gpu-workers.bicep` defines optional AKS capacity, Entra RBAC, workload identity, and a GPU pool scaling from zero. It still needs approved quota, a compatible device plugin, an evaluated model image, secure inference ingress, and load tests. Its system pool costs money even with zero GPU nodes.
 

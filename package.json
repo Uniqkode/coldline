@@ -1,11 +1,14 @@
 {
   "name": "coldline",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "python3 -m http.server 4173 --bind 127.0.0.1",
-    "api": "node service/ai-service.mjs"
+    "api": "node service/ai-service.mjs",
+    "test": "node --test test/*.test.mjs",
+    "build:azure": "node scripts/build-azure.mjs",
+    "check": "node scripts/check-site.mjs"
   },
   "engines": {
     "node": ">=20"
