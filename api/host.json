@@ -1,5 +1,0 @@
-{
-  "version": "2.0",
-  "extensions": { "http": { "routePrefix": "api", "maxConcurrentRequests": 20, "maxOutstandingRequests": 50 } },
-  "logging": { "applicationInsights": { "samplingSettings": { "isEnabled": true, "excludedTypes": "Request" } } }
-}

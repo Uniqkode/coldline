@@ -16,10 +16,7 @@
     const status = $('[data-request-status]', form);
     const button = $('[type="submit"]', form);
     let draft = '';
-    if (site.runtime.enabled && site.runtime.origin === location.origin) {
-      button.textContent = 'Send my request';
-      $$('[data-request-public], [data-request-public-notice]', form).forEach(node => { node.hidden = true; });
-    }
+    if (site.runtime.enabled && site.runtime.origin === location.origin) button.textContent = 'Send my request';
     form.addEventListener('submit', async event => {
       event.preventDefault();
       if (!form.reportValidity()) return;
