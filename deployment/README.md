@@ -1,5 +1,7 @@
 # Coldline deployment
 
+Deploy to Azure Static Web Apps: Connect the GitHub repo, create the workflow, add the custom domain, and verify linked authentication before enabling the organization API.
+
 ## Public release and build
 
 [GitHub Pages](https://uniqkode.github.io/coldline/) runs the public demonstration and prepares free-form enquiry drafts. It cannot receive private forms, authenticate organizations, synchronize records, or hold model secrets.

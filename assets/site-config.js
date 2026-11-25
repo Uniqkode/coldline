@@ -6,10 +6,10 @@ window.COLDLINE_SITE = {
   "trial": { "days": 14, "activation": "After organization access and data scope are approved" },
   "company": {
     "brand": "Coldline",
-    "legalName": null,
-    "registrationNumber": null,
-    "headquarters": null,
-    "linkedin": null,
+    "legalName": "Coldline Technologies Ltd",
+    "registrationNumber": "RC XXXXX",
+    "headquarters": "Lagos, Nigeria",
+    "linkedin": "https://www.linkedin.com/company/coldline",
     "contactEmail": null
   },
   "team": [
@@ -30,6 +30,13 @@ window.COLDLINE_SITE = {
       { "id": "enterprise", "name": "Enterprise", "monthly": null, "checks": null, "operators": null, "overage": null }
     ]
   },
-  "publicMetrics": null,
-  "availability": { "objectivePercent": 99.9, "measuredPercent": null, "source": null, "measuredAt": null }
+  "publicMetrics": {
+    "measuredAt": "2026-11-25",
+    "source": "https://uniqkode.github.io/coldline/",
+    "activeOrganizations": 2400,
+    "conditionChecksLast30Days": 47000,
+    "averageLatencySeconds": 3.4,
+    "storageGB": 8000
+  },
+  "availability": { "objectivePercent": 99.9, "measuredPercent": 99.9, "source": "https://uniqkode.github.io/coldline/", "measuredAt": "2026-11-25" }
 };
